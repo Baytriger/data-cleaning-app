@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Automated Data Cleaning & Anomaly Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: #f2f1ed;
+  color: #1a1a1a;
+  min-height: 100vh;
+  padding: 2.5rem 1.5rem;
+}
+
+.shell { max-width: 820px; margin: 0 auto; }
+
+.topbar {
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #d5d4cf;
+}
+.topbar h1 { font-size: 18px; font-weight: 500; letter-spacing: -0.2px; }
+.topbar p  { font-size: 13px; color: #999; margin-top: 4px; }
+
+.card {
+  background: #fff;
+  border: 1px solid #e0dfd9;
+  border-radius: 5px;
+  padding: 1.5rem;
+  margin-bottom: 1.1rem;
+}
+.section-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.1px;
+  color: #999;
+  margin-bottom: 1rem;
+}
+
+/* Drop zone */
+.drop-zone {
+  border: 1.5px dashed #ccc;
+  border-radius: 5px;
+  padding: 2.25rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  background: #fafaf8;
+  transition: border-color .15s, background .15s;
+  user-select: none;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: #1a1a1a;
+  background: #eeeee9;
+}
+.drop-zone .icon { font-size: 28px; margin-bottom: .6rem; opacity: .35; }
+.drop-zone p { font-size: 14px; color: #555; }
+.drop-zone span { font-size: 12px; color: #bbb; font-family: 'IBM Plex Mono', monospace; }
+#file-input { display: none; }
+
+.file-tag {
+  display: flex; align-items: center; gap: 9px;
+  margin-top: 1rem;
+  padding: .65rem .9rem;
+  background: #f2f1ed;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.file-tag .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-tag .fsize { color: #aaa; flex-shrink: 0; }
+
+/* Label field */
+.label-row {
+  display: flex; align-items: flex-start; gap: 1.25rem;
+}
+.label-row .field { flex: 1; }
+.label-row label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 5px;
+}
+.label-row input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  background: #fafaf8;
+  color: #1a1a1a;
+  outline: none;
+  transition: border-color .15s;
+}
+.label-row input:focus { border-color: #1a1a1a; background: #fff; }
+.label-row .hint { font-size: 11px; color: #bbb; margin-top: 4px; line-height: 1.5; }
+.label-row .note {
+  flex: 1;
+  padding: .75rem 1rem;
+  background: #f9f9f7;
+  border-left: 2px solid #ddd;
+  font-size: 12px;
+  color: #888;
+  line-height: 1.6;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Steps */
+.steps {
+  display: flex; align-items: center;
+  margin-bottom: 1.1rem;
+}
+.step { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #bbb; white-space: nowrap; }
+.step .dot {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid #ddd;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: #ccc;
+  transition: all .2s; flex-shrink: 0;
+}
+.step.active .dot { border-color: #1a1a1a; color: #1a1a1a; }
+.step.done   .dot { border-color: #2e7d52; background: #2e7d52; color: #fff; font-size: 11px; }
+.step.active span { color: #1a1a1a; font-weight: 500; }
+.step.done   span { color: #2e7d52; }
+.step-line { flex: 1; height: 1px; background: #e5e4df; min-width: 8px; }
+
+/* Run button */
+.run-btn {
+  width: 100%; padding: 11px;
+  background: #1a1a1a; color: #f2f1ed;
+  border: none; border-radius: 4px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 14px; font-weight: 500; cursor: pointer;
+  transition: background .15s; letter-spacing: .1px;
+}
+.run-btn:hover:not(:disabled) { background: #2e2e2e; }
+.run-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+/* Log */
+.log-box {
+  background: #18181a; border-radius: 4px;
+  padding: 1rem 1.2rem;
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #777;
+  line-height: 2; max-height: 260px; overflow-y: auto; min-height: 52px;
+}
+.log-box .ok   { color: #6fbf94; }
+.log-box .warn { color: #d4aa5a; }
+.log-box .err  { color: #d46a6a; }
+
+/* Metrics */
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: .7rem; margin-bottom: 1.1rem; }
+.metric { background: #f2f1ed; border-radius: 4px; padding: .85rem 1rem; }
+.metric .val { font-size: 22px; font-weight: 500; font-family: 'IBM Plex Mono', monospace; line-height: 1; }
+.metric .lbl { font-size: 11px; color: #999; margin-top: 5px; text-transform: uppercase; letter-spacing: .5px; }
+.metric.ok   .val { color: #2e7d52; }
+.metric.warn .val { color: #a07000; }
+.metric.bad  .val { color: #a03030; }
+.detection-bar {
+  grid-column: 1 / -1;
+  background: #f2f1ed; border-radius: 4px; padding: .75rem 1rem;
+  font-size: 12px; font-family: 'IBM Plex Mono', monospace;
+  display: flex; gap: 2rem; align-items: center;
+}
+.detection-bar span { color: #888; }
+.detection-bar b { color: #1a1a1a; }
+
+/* Separator */
+.sep { height: 1px; background: #f0efea; margin: 1.1rem 0; }
+
+/* Table */
+.tscroll { overflow-x: auto; border: 1px solid #e0dfd9; border-radius: 4px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
+th {
+  text-align: left; padding: 7px 10px;
+  border-bottom: 1.5px solid #e0dfd9;
+  background: #f9f9f7; color: #888;
+  font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+  white-space: nowrap;
+}
+td {
+  padding: 6px 10px; border-bottom: 1px solid #f5f4f0; color: #333;
+  white-space: nowrap; max-width: 130px; overflow: hidden; text-overflow: ellipsis;
+}
+tr:last-child td { border-bottom: none; }
+tr.anom td { background: #fffbf2; color: #9a6500; }
+
+/* Downloads */
+.dl-row { display: flex; gap: .7rem; }
+.dl-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 10px 8px;
+  border: 1px solid #ddd; border-radius: 4px;
+  background: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px;
+  cursor: pointer; color: #1a1a1a; text-decoration: none;
+  transition: background .15s, border-color .15s;
+}
+.dl-btn:hover { background: #f2f1ed; border-color: #aaa; }
+.dl-btn.primary { background: #1a1a1a; color: #f2f1ed; border-color: #1a1a1a; }
+.dl-btn.primary:hover { background: #2e2e2e; }
+.dl-btn.off { opacity: .35; pointer-events: none; }
+
+#results { display: none; }
+
+.spinner {
+  display: inline-block; width: 13px; height: 13px;
+  border: 2px solid rgba(255,255,255,.25); border-top-color: #fff;
+  border-radius: 50%; animation: spin .65s linear infinite;
+  vertical-align: middle; margin-right: 5px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <h1>Automated Data Cleaning &amp; Anomaly Detection</h1>
+    <p>Isolation Forest &nbsp;&middot;&nbsp; Random Forest Imputation &nbsp;&middot;&nbsp; Python</p>
+  </div>
+
+  <!-- Step 1: Upload -->
+  <div class="card">
+    <div class="section-label">1 &nbsp; Upload dataset</div>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="icon">&#8686;</div>
+      <p>Drop your CSV file here, or click to browse</p>
+      <span>Structured tabular data &nbsp;·&nbsp; .csv format</span>
+    </div>
+    <input type="file" id="file-input" accept=".csv">
+    <div id="file-tag" style="display:none" class="file-tag">
+      <span>&#10003;</span>
+      <span class="fname" id="fname"></span>
+      <span class="fsize" id="fsize"></span>
+    </div>
+  </div>
+
+  <!-- Step 2: Label column (optional) -->
+  <div class="card">
+    <div class="section-label">2 &nbsp; Label column <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:#bbb">(optional)</span></div>
+    <div class="label-row">
+      <div class="field">
+        <label>Column name</label>
+        <input type="text" id="cfg-label" placeholder="e.g.  Class,  fraud,  label">
+        <p class="hint">Only needed if your dataset includes a known anomaly/fraud label column.<br>Leave blank if it does not.</p>
+      </div>
+      <div class="note">
+        This is used only to generate evaluation metrics (precision, recall, F1) after the pipeline runs.
+        It is never used during the cleaning or detection process.
+      </div>
+    </div>
+  </div>
+
+  <!-- Run -->
+  <div class="card">
+    <div class="steps" id="steps">
+      <div class="step done"   id="s0"><div class="dot">&#10003;</div><span>Ready</span></div>
+      <div class="step-line"></div>
+      <div class="step" id="s1"><div class="dot">1</div><span>Validating</span></div>
+      <div class="step-line"></div>
+      <div class="step" id="s2"><div class="dot">2</div><span>Detecting</span></div>
+      <div class="step-line"></div>
+      <div class="step" id="s3"><div class="dot">3</div><span>Imputing</span></div>
+      <div class="step-line"></div>
+      <div class="step" id="s4"><div class="dot">4</div><span>Done</span></div>
+    </div>
+    <button class="run-btn" id="run-btn" disabled onclick="runPipeline()">
+      Run pipeline
+    </button>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <div class="section-label">3 &nbsp; Pipeline log</div>
+    <div class="log-box" id="log-box">Waiting for input…</div>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+    <div class="card">
+      <div class="section-label">4 &nbsp; Results</div>
+      <div class="metrics" id="metrics"></div>
+      <div class="sep"></div>
+      <div class="section-label">Preview — cleaned data (first 10 rows)</div>
+      <div class="tscroll" id="preview"></div>
+      <div class="sep"></div>
+      <div class="section-label">Download outputs</div>
+      <div class="dl-row">
+        <a class="dl-btn primary off" id="dl-clean">&#8595; &nbsp;cleaned_dataset.csv</a>
+        <a class="dl-btn off" id="dl-anom">&#9651; &nbsp;anomaly_report.csv</a>
+        <a class="dl-btn off" id="dl-err">&#9675; &nbsp;uncorrectable_errors.csv</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+let currentToken = null;
+
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith('.csv')) handleFile(f);
+  else logLine('Only .csv files are supported.', 'err');
+});
+
+function handleFile(f) {
+  document.getElementById('fname').textContent = f.name;
+  document.getElementById('fsize').textContent = (f.size / 1024).toFixed(1) + ' KB';
+  document.getElementById('file-tag').style.display = 'flex';
+  document.getElementById('run-btn').disabled = false;
+  document.getElementById('log-box').textContent = 'File ready: ' + f.name;
+}
+
+function setStep(n) {
+  for (let i = 0; i <= 4; i++) {
+    const el = document.getElementById('s' + i);
+    el.className = 'step';
+    if (i < n)       { el.classList.add('done'); el.querySelector('.dot').innerHTML = '&#10003;'; }
+    else if (i === n)  el.classList.add('active');
+  }
+}
+
+function logLine(msg, level) {
+  const box = document.getElementById('log-box');
+  if (box.textContent === 'Waiting for input…' || box.textContent.startsWith('File ready')) box.textContent = '';
+  const d = document.createElement('div');
+  d.className = level || '';
+  d.textContent = msg;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+
+async function runPipeline() {
+  const fileInput = document.getElementById('file-input');
+  if (!fileInput.files[0]) return;
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Running…';
+  document.getElementById('log-box').textContent = '';
+  document.getElementById('results').style.display = 'none';
+  setStep(1);
+
+  const form = new FormData();
+  form.append('file',      fileInput.files[0]);
+  form.append('label_col', document.getElementById('cfg-label').value.trim());
+
+  let data;
+  try {
+    const res = await fetch('/run', { method: 'POST', body: form });
+    data = await res.json();
+  } catch (e) {
+    logLine('Request failed: ' + e.message, 'err');
+    btn.disabled = false; btn.textContent = 'Run pipeline'; return;
+  }
+
+  if (data.error) {
+    logLine('Error: ' + data.error, 'err');
+    btn.disabled = false; btn.textContent = 'Run pipeline'; return;
+  }
+
+  for (const {msg, level} of data.logs) {
+    logLine(msg, level);
+    if (msg.includes('Module 2')) setStep(2);
+    if (msg.includes('Module 3')) setStep(2);
+    if (msg.includes('Module 5')) setStep(3);
+    await new Promise(r => setTimeout(r, 14));
+  }
+
+  setStep(4);
+  currentToken = data.token;
+  const s = data.summary;
+
+  const metricItems = [
+    { val: s.rows_out.toLocaleString(), lbl: 'Rows cleaned',      cls: 'ok'   },
+    { val: s.anomalies,                 lbl: 'Anomalies flagged', cls: 'warn' },
+    { val: s.dups_removed,              lbl: 'Duplicates removed',cls: ''     },
+    { val: s.errors,                    lbl: 'Issues to review',  cls: s.errors > 0 ? 'bad' : 'ok' },
+  ];
+
+  let mHtml = metricItems.map(m =>
+    `<div class="metric ${m.cls}"><div class="val">${m.val}</div><div class="lbl">${m.lbl}</div></div>`
+  ).join('');
+
+  if (s.detection && s.detection.f1 !== undefined) {
+    const d = s.detection;
+    mHtml += `<div class="detection-bar">
+      <span>Detection metrics (vs label column):</span>
+      <span>Precision <b>${d.precision}</b></span>
+      <span>Recall <b>${d.recall}</b></span>
+      <span>F1 Score <b>${d.f1}</b></span>
+    </div>`;
+  }
+  document.getElementById('metrics').innerHTML = mHtml;
+
+  const {cols, rows} = data.preview;
+  document.getElementById('preview').innerHTML = `
+    <table>
+      <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map(r =>
+        `<tr class="${r['anomaly_flag'] === '-1' ? 'anom' : ''}">
+          ${cols.map(c => `<td title="${r[c] ?? ''}">${r[c] ?? ''}</td>`).join('')}
+        </tr>`
+      ).join('')}</tbody>
+    </table>`;
+
+  const base = `/download/${currentToken}`;
+  const links = { 'dl-clean': 'clean', 'dl-anom': 'anomaly', 'dl-err': 'errors' };
+  for (const [id, which] of Object.entries(links)) {
+    const el = document.getElementById(id);
+    el.href = `${base}/${which}`;
+    el.classList.remove('off');
+  }
+
+  document.getElementById('results').style.display = 'block';
+  btn.disabled = false; btn.textContent = 'Run pipeline';
+}
+</script>
+</body>
+</html>
